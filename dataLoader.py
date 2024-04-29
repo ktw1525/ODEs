@@ -10,12 +10,12 @@ class MakeInputDatas:
         self.n_t = np.arange(1, Len + 1)
 
         # Coefficients initialization
-        self.a1_t = 0.0002 * np.random.rand()
-        self.b1_t = 0.0002 * np.random.rand()
-        self.a2_t = 0.0002 * np.random.rand()
-        self.b2_t = 0.0002 * np.random.rand()
-        self.a3_t = 0.0002 * np.random.rand()
-        self.b3_t = 0.0002 * np.random.rand()
+        self.G1_t = 0.0002 * np.random.rand()
+        self.C1_t = 0.0002 * np.random.rand()
+        self.G2_t = 0.0002 * np.random.rand()
+        self.C2_t = 0.0002 * np.random.rand()
+        self.G3_t = 0.0002 * np.random.rand()
+        self.C3_t = 0.0002 * np.random.rand()
 
         # Generate and add noise to voltages
         self.V1_t = self.add_noise(self.Vp * np.sin(self.w * self.n_t), 0.1)
@@ -27,15 +27,10 @@ class MakeInputDatas:
         self.dV2dn_t = np.append([0], np.diff(self.V2_t))
         self.dV3dn_t = np.append([0], np.diff(self.V3_t))
 
-        # Refresh values
-        self.G1_t, self.C1_t, self.dC1dn_t = self.refresh_values(self.a1_t, self.b1_t, self.n_t)
-        self.G2_t, self.C2_t, self.dC2dn_t = self.refresh_values(self.a2_t, self.b2_t, self.n_t)
-        self.G3_t, self.C3_t, self.dC3dn_t = self.refresh_values(self.a3_t, self.b3_t, self.n_t)
-
         # Current calculations
-        self.I_t = self.current(self.V1_t, self.dV1dn_t, self.G1_t, self.C1_t, self.dC1dn_t) + \
-                   self.current(self.V2_t, self.dV2dn_t, self.G2_t, self.C2_t, self.dC2dn_t) + \
-                   self.current(self.V3_t, self.dV3dn_t, self.G3_t, self.C3_t, self.dC3dn_t)
+        self.I_t = self.current(self.V1_t, self.dV1dn_t, self.G1_t, self.C1_t) + \
+                   self.current(self.V2_t, self.dV2dn_t, self.G2_t, self.C2_t) + \
+                   self.current(self.V3_t, self.dV3dn_t, self.G3_t, self.C3_t)
         self.I_t = self.add_noise(self.I_t, 0.00)
 
     def add_noise(self, sig, rate):
@@ -43,26 +38,8 @@ class MakeInputDatas:
         noise = (2 * np.random.rand(len(sig)) - 1) * rms * rate
         return sig + noise
 
-    def refresh_values(self, a, b, x):
-        g = self.poly_func(a, x)
-        c = self.poly_func(b, x)
-        dcdn = self.diff_poly_func(b, x)
-        return g, c, dcdn
-
-    def poly_func(self, a, x):
-        result = 0
-        for p in range(1, len(a) + 1):
-            result += a * x**(p - 1)
-        return result
-
-    def diff_poly_func(self, a, x):
-        result = 0
-        for p in range(1, len(a) + 1):
-            result += (p - 1) * a * x**(p - 2)
-        return result
-
-    def current(self, v, dvdn, g, c, dcdn):
-        return (g + dcdn) * v + c * dvdn
+    def current(self, v, dvdn, g, c):
+        return g * v + c * dvdn
 
     def get_data(self):
         return {
