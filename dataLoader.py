@@ -1,6 +1,9 @@
 import torch
 import numpy as np
 
+THREADNUM = 8
+torch.set_num_threads(THREADNUM)
+
 class MakeInputDatas:
     def __init__(self, Len, Period):
         self.Len = Len

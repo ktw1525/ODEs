@@ -21,6 +21,10 @@ LAYER1_NODE = LEN_PER_ONECYCLE
 LAYER2_NODE = LEN_PER_ONECYCLE
 isOperating = 0
 
+THREADNUM = 8
+torch.set_num_threads(THREADNUM)
+print('Use ', THREADNUM, ' threads')
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 print("torch version: ", torch.__version__)
