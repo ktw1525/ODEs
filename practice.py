@@ -1,4 +1,6 @@
 import os
+import time
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,12 +17,15 @@ EPOCHS = 1000
 WAVEFORMS_INPUT = 7     # V1, V2, V3, dV1dn, dV2dn, dV3dn, I
 OUTPUT_SIZE = 6         # G1, G2, G3, C1, C2, C3
 BATCHSIZE = 100000
-LAYER1_NODE = 64
-LAYER2_NODE = 64
+LAYER1_NODE = 12
+LAYER2_NODE = 6
+isOperating = 0
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
-input("엔터를 누르면 계속합니다...")
+print("torch version: ", torch.__version__)
+print("cuda version: ", torch.version.cuda)
+print("cudnn version: ", torch.backends.cudnn.version())
 dataPipe = dlr.MakeInputDatas(DATALEN, LEN_PER_ONECYCLE);
 
 class MRM3PNet(nn.Module):
@@ -49,16 +54,18 @@ else:
     print("No existing model found, starting training from scratch.")
 
 # 손실 함수 및 최적화 알고리즘 설정
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+criterion = nn.CrossEntropyLoss() #nn.MSELoss()
+optimizer = optim.RMSprop(model.parameters(), lr=LEARNING_RATE) #optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+input("엔터를 누르면 계속합니다...")
 
 def train(model, data_loader, optimizer, criterion, epochs, model_path):
     index = 0
     while True:
         index += 1
         inputs, targets = data_loader.get_dataSets(BATCHSIZE)
-        inputs = torch.tensor(inputs, dtype=torch.float32).to(device)
-        targets = torch.tensor(targets, dtype=torch.float32).to(device)
+        inputs = torch.tensor(np.array(inputs), dtype=torch.float32).to(device)
+        targets = torch.tensor(np.array(targets), dtype=torch.float32).to(device)
         for epoch in range(epochs):
             optimizer.zero_grad()
             outputs = model(inputs)
@@ -66,14 +73,18 @@ def train(model, data_loader, optimizer, criterion, epochs, model_path):
             if epoch == 0:
                 startLoss = loss.item()
             loss.backward()
+            isOperating=1
             optimizer.step()
+            isOperating=0
             
-            print(f'Index [ {index} ], Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.4f}')
+            print(f'Index [ {index} ], Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.10f}')
             if loss.item() / startLoss < 0.000000001 or loss.item() < 0.0000001:
                 break
 
 try:
     train(model, dataPipe, optimizer, criterion, EPOCHS, model_path)
 except KeyboardInterrupt:
+    while(isOperating==1):
+        time.sleep(1)
     torch.save(model.state_dict(), model_path)
     print(f'Model saved to {model_path}')

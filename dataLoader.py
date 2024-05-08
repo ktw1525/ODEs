@@ -18,12 +18,12 @@ class MakeInputDatas:
 
     def regen(self):
         # Coefficients initialization
-        self.G1_t = 0.0002 * np.random.rand()
-        self.C1_t = 0.0002 * np.random.rand()
-        self.G2_t = 0.0002 * np.random.rand()
-        self.C2_t = 0.0002 * np.random.rand()
-        self.G3_t = 0.0002 * np.random.rand()
-        self.C3_t = 0.0002 * np.random.rand()
+        self.G1_t = 10 * np.random.rand()
+        self.C1_t = 10 * np.random.rand()
+        self.G2_t = 10 * np.random.rand()
+        self.C2_t = 10 * np.random.rand()
+        self.G3_t = 10 * np.random.rand()
+        self.C3_t = 10 * np.random.rand()
 
         # Generate and add noise to voltages
         self.V1_t = self.add_noise(self.Vp * np.sin(self.w * self.n_t), 0.1)
