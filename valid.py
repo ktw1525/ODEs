@@ -12,42 +12,36 @@ DATALEN = 300
 LEARNING_RATE = 0.001
 EPOCHS = 1000
 WAVEFORMS_INPUT = 7     # V1, V2, V3, dV1dn, dV2dn, dV3dn, I
-INPUT_SIZE = DATALEN * WAVEFORMS_INPUT
-WAVEFORMS_VECTORS = WAVEFORMS_INPUT*2
-MATELEMENTS_INPUT = (WAVEFORMS_INPUT**2)*2
-MATELEMENTS = (WAVEFORMS_INPUT**2)
-BATCHSIZE = 1
 OUTPUT_SIZE = 6         # G1, G2, G3, C1, C2, C3
+BATCHSIZE = 1
+LAYER1_NODE = 64
+LAYER2_NODE = 64
 
 dataPipe = dlr.MakeInputDatas(DATALEN, LEN_PER_ONECYCLE);
 dataPipe.regen();
 data = dataPipe.get_data();
 target = dataPipe.get_target();
 
-class MultiplyLayer(nn.Module):
-    def forward(self, x):
-        X1 = x.repeat(len(x),1)
-        X2 = X1.transpose(0,1)
-        return torch.matmul(X2, X1).reshape(-1,)
-
 class MRM3PNet(nn.Module):
     def __init__(self):
         super(MRM3PNet, self).__init__()
-        self.ly1 = nn.Linear(INPUT_SIZE, INPUT_SIZE*2)
-        self.ly2 = nn.Conv1d(BATCHSIZE, WAVEFORMS_VECTORS, kernel_size=LEN_PER_ONECYCLE, stride=1, padding=0)
-        self.ly3 = nn.Linear(INPUT_SIZE*2-LEN_PER_ONECYCLE+1, WAVEFORMS_VECTORS) # WAVEFORMS_VECTORS, MATELEMENTS_INPUT
-        self.ly4 = MultiplyLayer()
-        self.ly5 = nn.Linear(WAVEFORMS_VECTORS*WAVEFORMS_VECTORS, OUTPUT_SIZE)
+        self.fc1 = nn.Conv1d(in_channels=WAVEFORMS_INPUT, out_channels=1, kernel_size=LEN_PER_ONECYCLE, padding=0, stride=1)
+        self.fc2 = nn.Linear(in_features=DATALEN-LEN_PER_ONECYCLE+1, out_features=LAYER1_NODE)
+        self.fc3 = nn.Linear(in_features=LAYER1_NODE, out_features=LAYER2_NODE)
+        self.fc4 = nn.Linear(in_features=LAYER2_NODE, out_features=OUTPUT_SIZE)
 
-    def forward(self, input):
-        ly1=self.ly1(input)
-        ly2=self.ly2(ly1)
-        ly3=self.ly3(ly2)
-        ly4=self.ly4(ly3)
-        out=self.ly5(ly4)
-        return out
+    def forward(self, x):
+        x = self.fc1(x)
+        x = x.view(x.size(0), -1)  # 텐서 차원을 맞추기 위해 필요
+        x = self.fc2(x)
+        x = self.fc3(x)
+        x = self.fc4(x)
+        return x
         
-model = MRM3PNet()
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
+model = MRM3PNet().to(device)
 
 # 모델이 저장된 경로에서 모델을 불러오기
 if os.path.isfile(model_path):
@@ -57,14 +51,14 @@ else:
     print("No existing model found, starting training from scratch.")
 
 # 손실 함수 및 최적화 알고리즘 설정
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
+criterion = nn.MSELoss()
 
 def valid(model, data_loader):
     data_loader.regen()
-    inputs = data_loader.get_data()
-    targets = data_loader.get_target()
+    inputs, targets = data_loader.get_dataSets(BATCHSIZE)
+    inputs = torch.tensor(inputs, dtype=torch.float32).to(device)
+    targets = torch.tensor(targets, dtype=torch.float32).to(device)
+    
     outputs = model(inputs)
     loss = criterion(outputs, targets)
     print(f'True values: {targets}')

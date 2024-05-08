@@ -45,8 +45,7 @@ class MakeInputDatas:
         return g * v + c * dvdn
 
     def get_data(self):
-        data = []
-        data.append(torch.tensor([
+        return [
             self.V1_t,
             self.V2_t,
             self.V3_t,
@@ -54,16 +53,23 @@ class MakeInputDatas:
             self.dV2dn_t,
             self.dV3dn_t,
             self.I_t
-        ]).float().flatten())
-        data = torch.stack(data)
-        return data
+        ]
     
     def get_target(self):
-        return torch.tensor(torch.tensor([
+        return [
             self.G1_t,
             self.G2_t,
             self.G3_t,
             self.C1_t,
             self.C2_t,
             self.C3_t,
-        ]).float().flatten())
+        ]
+
+    def get_dataSets(self, batchsize):
+        datas = []
+        targets = []
+        for batchidx in range(batchsize):
+            self.regen()
+            datas.append(self.get_data())
+            targets.append(self.get_target())
+        return [datas, targets]
