@@ -14,9 +14,15 @@ LEARNING_RATE = 0.001
 EPOCHS = 100
 WAVEFORMS_INPUT = 7     # V1, V2, V3, dV1dn, dV2dn, dV3dn, I
 OUTPUT_SIZE = 6         # G1, G2, G3, C1, C2, C3
-BATCHSIZE = 100000
-LAYER1_NODE = LEN_PER_ONECYCLE
-LAYER2_NODE = LEN_PER_ONECYCLE
+BATCH_SIZE = 1
+KERNEL_SIZE = 3
+LAYER1_NODE = 64
+LAYER2_NODE = 64
+LAYER3_NODE = 64
+
+THREADNUM = 4
+torch.set_num_threads(THREADNUM)
+print('Use ', THREADNUM, ' threads')
 
 dataPipe = dlr.MakeInputDatas(DATALEN, LEN_PER_ONECYCLE);
 dataPipe.regen();
@@ -26,23 +32,17 @@ target = dataPipe.get_target();
 class MRM3PNet(nn.Module):
     def __init__(self):
         super(MRM3PNet, self).__init__()
-        self.fc1 = nn.Conv1d(in_channels=WAVEFORMS_INPUT, out_channels=1, kernel_size=LEN_PER_ONECYCLE, padding=0, stride=1)
-        self.fc2 = nn.Tanh()
-        self.fc3 = nn.Linear(in_features=DATALEN-LEN_PER_ONECYCLE+1, out_features=LAYER1_NODE)
-        self.fc4 = nn.Tanh()
-        self.fc5 = nn.Linear(in_features=LAYER1_NODE, out_features=LAYER2_NODE)
-        self.fc6 = nn.Tanh()
-        self.fc7 = nn.Linear(in_features=LAYER2_NODE, out_features=OUTPUT_SIZE)
+        self.conv1 = nn.Conv1d(in_channels=WAVEFORMS_INPUT, out_channels=LAYER1_NODE, kernel_size=KERNEL_SIZE, padding=1)
+        self.conv2 = nn.Conv1d(in_channels=LAYER1_NODE, out_channels=LAYER2_NODE, kernel_size=KERNEL_SIZE, padding=1)
+        self.lstm = nn.LSTM(input_size=DATALEN, hidden_size=LAYER3_NODE, num_layers=2, batch_first=True)
+        self.fc = nn.Linear(LAYER3_NODE, OUTPUT_SIZE)  # 6 출력값
 
     def forward(self, x):
-        x = self.fc1(x)
-        x = x.view(x.size(0), -1)  # 텐서 차원을 맞추기 위해 필요
-        x = self.fc2(x)
-        x = self.fc3(x)
-        x = self.fc4(x)
-        x = self.fc5(x)
-        x = self.fc6(x)
-        x = self.fc7(x)
+        x = nn.ReLU()(self.conv1(x))
+        x = nn.ReLU()(self.conv2(x))
+        x, _ = self.lstm(x)
+        x = x[:, -1, :]  # 시퀀스의 마지막 아웃풋만 사용
+        x = self.fc(x)
         return x
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -61,7 +61,7 @@ criterion = nn.MSELoss()
 
 def valid(model, data_loader):
     data_loader.regen()
-    inputs, targets = data_loader.get_dataSets(BATCHSIZE)
+    inputs, targets = data_loader.get_dataSets(BATCH_SIZE)
     inputs = torch.from_numpy(np.array(inputs)).float().to(device)
     targets = torch.from_numpy(np.array(targets)).float().to(device)
     
