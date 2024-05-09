@@ -87,7 +87,7 @@ def train(model, data_loader, optimizer, criterion, epochs):
                 startLoss = loss.item()
                 loss_min = np.roll(loss_min, -1)  # 모든 요소를 왼쪽으로 한 칸씩 이동
                 loss_min[-1] = startLoss  # 마지막 위치에 새로운 손실 값 저장       
-            print(f'Learned dataSets: {index*BATCH_SIZE}, Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.10f}')
+            print(f'Learned dataSets: {index*BATCH_SIZE/1000}k, Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.10f}')
             if loss.item() < np.average(loss_min)*(1-BREAK_CRIT):
                 break
             isOperating=1
