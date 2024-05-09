@@ -14,10 +14,12 @@ model_path = 'mnist_model.pth'
 LEN_PER_ONECYCLE = 100
 DATALEN = 300
 LEARNING_RATE = 0.001
+BREAK_CRIT = LEARNING_RATE*100
 EPOCHS = 100
 WAVEFORMS_INPUT = 7     # V1, V2, V3, dV1dn, dV2dn, dV3dn, I
 OUTPUT_SIZE = 6         # G1, G2, G3, C1, C2, C3
-BATCH_SIZE = 5000
+BATCH_SIZE = 1000
+BATCH_MULTIPLY = 1000
 KERNEL_SIZE = 3
 LAYER1_NODE = 64
 LAYER2_NODE = 64
@@ -70,6 +72,7 @@ input("엔터를 누르면 시작합니다...")
 
 def train(model, data_loader, optimizer, criterion, epochs):
     index = 0
+    loss_min = np.full(BATCH_MULTIPLY, float('inf'))
     time.sleep(10)
     while True:
         index += 1
@@ -82,15 +85,17 @@ def train(model, data_loader, optimizer, criterion, epochs):
             loss = criterion(outputs, targets)
             if epoch == 0:
                 startLoss = loss.item()
-
-            print(f'Index [ {index} ], Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.10f}')
-            if loss.item() / startLoss < 0.5 or loss.item() < 0.001:
+                loss_min = np.roll(loss_min, -1)  # 모든 요소를 왼쪽으로 한 칸씩 이동
+                loss_min[-1] = startLoss  # 마지막 위치에 새로운 손실 값 저장       
+            print(f'Learned dataSets: {index*BATCH_SIZE}, Epoch [{epoch+1}/{epochs}], Loss: {loss.item():.10f}')
+            if loss.item() < np.average(loss_min)*(1-BREAK_CRIT):
                 break
             isOperating=1
             loss.backward()
             optimizer.step()
-            isOperating=0
-            
+            isOperating=0 
+        # FIFO 적용: 첫 번째 요소 제거 및 배열 끝에 새 값 추가  
+        print('loss mean thresholds: ', np.average(loss_min))  
 
 
 try:
